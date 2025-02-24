@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Total Price Calculator</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <h2>Total Price Calculator</h2>
+    <form method="post">
+        {% for i in range(3) %}
+            <div>
+                <label>Item {{ i+1 }} Price:</label>
+                <input type="number" name="price{{ i }}" step="0.01" required>
+                <label>Quantity:</label>
+                <input type="number" name="quantity{{ i }}" required>
+            </div>
+        {% endfor %}
+        <br>
+        <button type="submit">Calculate Total</button>
+    </form>
+
+    {% if total_price is not none %}
+        <div class="result">
+            <p>Total Price for all items: ₹{{ total_price }}</p>
+        </div>
+    {% endif %}
+
+    <h3>Cart History</h3>
+    <ul>
+        {% for item in cart_items %}
+            <li>Price: ₹{{ item.price }}, Quantity: {{ item.quantity }}, Total: ₹{{ item.total }}</li>
+        {% endfor %}
+    </ul>
+</body>
+</html>
