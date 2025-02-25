@@ -10,7 +10,7 @@ h2, h3 {
 }
 
 form { 
-    background: white; 
+    background: pink; 
     padding: 20px; 
     display: inline-block; 
     border-radius: 10px; 
@@ -47,7 +47,7 @@ ul {
 }
 
 li {
-    background: white;
+    background: pink;
     margin: 5px auto;
     padding: 10px;
     width: 300px;
