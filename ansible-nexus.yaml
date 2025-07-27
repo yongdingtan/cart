@@ -33,7 +33,7 @@
     - name: Download artifact from Nexus
       get_url:
         url: "{{ nexus_url }}/repository/{{ nexus_repo }}/{{ artifact_name }}-{{ artifact_version }}.zip"
-        dest: "/tmp/{{ artifact_name }}.zip"
+        dest: "/tmp/{{ artifact_name }}-{{ artifact_version }}.zip"
         url_username: "{{ nexus_user }}"
         url_password: "{{ nexus_pass }}"
         validate_certs: no
@@ -44,11 +44,12 @@
 
     - name: Unzip application
       unarchive:
-        src: "/tmp/{{ artifact_name }}.zip"
+        src: "/tmp/{{ artifact_name }}-{{ artifact_version }}.zip"
         dest: "{{ app_dir }}"
         remote_src: yes
         owner: "{{ app_user }}"
         group: "{{ app_user }}"
+        extra_opts: [--strip-components=1]
 
     - name: Create virtual environment
       command: "python3 -m venv {{ app_dir }}/venv"
@@ -59,7 +60,6 @@
       pip:
         requirements: "{{ app_dir }}/requirements.txt"
         virtualenv: "{{ app_dir }}/venv"
-        virtualenv_command: python3 -m venv
 
     - name: Install Gunicorn
       pip:
@@ -70,6 +70,9 @@
       template:
         src: "templates/app.service.j2"
         dest: "/etc/systemd/system/{{ artifact_name }}.service"
+        owner: root
+        group: root
+        mode: '0644'
       notify: Restart application
 
     - name: Enable and start service
