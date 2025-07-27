@@ -1,6 +1,6 @@
 ---
 - name: Deploy Python App from Nexus
-  hosts: web
+  hosts: 3.129.17.174
   become: yes
   vars:
     nexus_url: "http://52.14.130.215:8081"
