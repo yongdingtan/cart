@@ -1,86 +1,33 @@
 ---
-- name: Deploy Python App from Nexus
-  hosts: 3.129.17.174
-  become: yes
-  vars:
-    nexus_url: "http://52.14.130.215:8081"
-    nexus_repo: "maven-releases"
-    artifact_name: "cart-yongding"
-    artifact_version: "v23"
-    app_dir: "/opt/cart-app"
-    app_user: "ubuntu" 
+- name: Deploy Python App from Zip Archive (Simple)
+  hosts: web
+  become: true
+  become_user: ubuntu
 
   tasks:
-    - name: Install required system packages
+    - name: Download ZIP from Nexus
+      get_url:
+        url: http://52.14.130.215:8081/repository/maven-releases/cart.zip
+        dest: /home/ubuntu/cart.zip
+
+    - name: Unzip app package
+      unarchive:
+        src: /home/ubuntu/cart.zip
+        dest: /home/ubuntu/cart
+        remote_src: yes
+
+    - name: Install required packages (system-wide)
       apt:
         name:
           - python3
           - python3-pip
-          - python3-venv
-          - unzip
-          - curl
-        state: present
         update_cache: yes
-
-    - name: Create application directory
-      file:
-        path: "{{ app_dir }}"
-        state: directory
-        owner: "{{ app_user }}"
-        group: "{{ app_user }}"
-        mode: '0755'
-
-    - name: Download artifact from Nexus
-      get_url:
-        url: "{{ nexus_url }}/repository/{{ nexus_repo }}/{{ artifact_name }}-{{ artifact_version }}.zip"
-        dest: "/tmp/{{ artifact_name }}-{{ artifact_version }}.zip"
-        url_username: "{{ nexus_user }}"
-        url_password: "{{ nexus_pass }}"
-        validate_certs: no
-      register: download_result
-      until: download_result is succeeded
-      retries: 3
-      delay: 5
-
-    - name: Unzip application
-      ansible.builtin.unarchive:
-        src: "/tmp/{{ artifact_name }}-{{ artifact_version }}.zip"
-        dest: "{{ app_dir }}"
-        remote_src: yes
-
-    - name: Create virtual environment
-      command: "python3 -m venv {{ app_dir }}/venv"
-      args:
-        creates: "{{ app_dir }}/venv/bin/activate"
 
     - name: Install requirements
       pip:
-        requirements: "{{ app_dir }}/requirements.txt"
-        virtualenv: "{{ app_dir }}/venv"
+        requirements: /home/ubuntu/cart/requirements.txt
 
-    - name: Install Gunicorn
-      pip:
-        name: gunicorn
-        virtualenv: "{{ app_dir }}/venv"
-
-    - name: Deploy systemd service file
-      template:
-        src: app.service.j2
-        dest: /etc/systemd/system/{{ artifact_name }}.service
-        owner: root
-        group: root
-        mode: '0644'
-      notify: Restart application
-
-    - name: Enable and start service
-      systemd:
-        name: "{{ artifact_name }}"
-        state: started
-        enabled: yes
-        daemon_reload: yes
-
-  handlers:
-    - name: Restart application
-      systemd:
-        name: "{{ artifact_name }}"
-        state: restarted
+    - name: Run Python app in background
+      shell: nohup python3 app.py > output.log 2>&1 &
+      args:
+        chdir: /home/ubuntu/cart
