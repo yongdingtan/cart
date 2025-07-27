@@ -43,13 +43,10 @@
       delay: 5
 
     - name: Unzip application
-      unarchive:
-        src: "/tmp/{{ artifact_name }}-{{ artifact_version }}.zip"
-        dest: "{{ app_dir }}"
+      ansible.builtin.unarchive:
+        src: /tmp/cart-yongding-v23.zip
+        dest: /opt/cart-app
         remote_src: yes
-        owner: "{{ app_user }}"
-        group: "{{ app_user }}"
-        extra_opts: [--strip-components=1]
 
     - name: Create virtual environment
       command: "python3 -m venv {{ app_dir }}/venv"
