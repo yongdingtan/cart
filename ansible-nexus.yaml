@@ -7,7 +7,7 @@
   tasks:
     - name: Download ZIP from Nexus
       ansible.builtin.get_url:
-        url: http://52.14.130.215:8081/repository/maven-releases/cart.zip
+        url: http://52.14.130.215:8081/repository/maven-releases/cart-yongding-v23.zip
         dest: /home/ubuntu/cart.zip
 
     - name: Ensure destination directory exists
