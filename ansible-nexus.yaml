@@ -1,0 +1,76 @@
+---
+- name: Package and Push Cart App to Nexus
+  hosts: localhost
+  connection: local
+  vars:
+    repo_dir: "/tmp/cart_clone"
+    artifact_name: "cart-app"
+    artifact_version: "v23"
+    nexus_url: "http://52.14.130.215:8081"
+    nexus_repository: "maven-releases"
+    nexus_username: "admin"
+    nexus_password: "admin123"
+
+  tasks:
+    - name: Install required packages
+      become: yes
+      ansible.builtin.apt:
+        name:
+          - git
+          - unzip
+          - curl
+        state: present
+        update_cache: yes
+
+    - name: Clone GitHub repository
+      ansible.builtin.git:
+        repo: "https://github.com/yongdingtan/cart.git"
+        dest: "{{ repo_dir }}"
+        version: "main"  # or your specific branch/tag
+        force: yes
+
+    - name: Create zip artifact
+      ansible.builtin.archive:
+        path: "{{ repo_dir }}"
+        dest: "/tmp/{{ artifact_name }}-{{ artifact_version }}.zip"
+        format: zip
+        exclude_path:
+          - "{{ repo_dir }}/.git"
+          - "{{ repo_dir }}/.github"
+          - "{{ repo_dir }}/venv"
+          - "{{ repo_dir }}/.idea"
+          - "{{ repo_dir }}/node_modules"
+
+    - name: Verify zip artifact exists
+      ansible.builtin.stat:
+        path: "/tmp/{{ artifact_name }}-{{ artifact_version }}.zip"
+      register: zip_file
+
+    - name: Upload artifact to Nexus Maven repository
+      ansible.builtin.uri:
+        url: "{{ nexus_url }}/repository/{{ nexus_repository }}/com/example/{{ artifact_name }}/{{ artifact_version }}/{{ artifact_name }}-{{ artifact_version }}.zip"
+        method: PUT
+        src: "/tmp/{{ artifact_name }}-{{ artifact_version }}.zip"
+        headers:
+          Content-Type: "application/zip"
+        status_code: 201
+        user: "{{ nexus_username }}"
+        password: "{{ nexus_password }}"
+        force_basic_auth: yes
+        validate_certs: no
+      register: upload_result
+      until: upload_result.status == 201
+      retries: 3
+      delay: 5
+
+    - name: Print upload result
+      ansible.builtin.debug:
+        var: upload_result
+
+    - name: Clean up temporary files
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: absent
+      with_items:
+        - "{{ repo_dir }}"
+        - "/tmp/{{ artifact_name }}-{{ artifact_version }}.zip"
