@@ -1,34 +1,29 @@
 ---
-- name: Deploy Cart Application
-  hosts: localhost  # Runs on the slave node
-  connection: local
+- name: Deploy Python App from Nexus
+  hosts: 3.129.17.174  # Your slave node IP
   become: yes
   vars:
-    app_user: "cartuser"
-    service_name: "cart-app"
+    nexus_url: "http://52.14.130.215:8081"
+    nexus_repo: "maven-releases"
+    artifact_name: "cart-yongding"
+    artifact_version: "v23"
+    app_dir: "/opt/cart-app"
+    app_user: "ubuntu"  # Change to your slave node user
 
   tasks:
-    - name: Install required packages
-      ansible.builtin.apt:
+    - name: Install required system packages
+      apt:
         name:
           - python3
           - python3-pip
           - python3-venv
-          - git
           - unzip
           - curl
         state: present
         update_cache: yes
 
-    - name: Create application user
-      ansible.builtin.user:
-        name: "{{ app_user }}"
-        system: yes
-        create_home: no
-        shell: /usr/sbin/nologin
-
     - name: Create application directory
-      ansible.builtin.file:
+      file:
         path: "{{ app_dir }}"
         state: directory
         owner: "{{ app_user }}"
@@ -36,9 +31,9 @@
         mode: '0755'
 
     - name: Download artifact from Nexus
-      ansible.builtin.get_url:
-        url: "{{ nexus_url }}/repository/maven-releases/com/example/{{ artifact_name }}/{{ artifact_version }}/{{ artifact_name }}-{{ artifact_version }}.zip"
-        dest: "/tmp/cart-app.zip"
+      get_url:
+        url: "{{ nexus_url }}/repository/{{ nexus_repo }}/{{ artifact_name }}-{{ artifact_version }}.zip"
+        dest: "/tmp/{{ artifact_name }}.zip"
         url_username: "{{ nexus_user }}"
         url_password: "{{ nexus_pass }}"
         validate_certs: no
@@ -48,46 +43,44 @@
       delay: 5
 
     - name: Unzip application
-      ansible.builtin.unarchive:
-        src: "/tmp/cart-app.zip"
+      unarchive:
+        src: "/tmp/{{ artifact_name }}.zip"
         dest: "{{ app_dir }}"
         remote_src: yes
         owner: "{{ app_user }}"
         group: "{{ app_user }}"
-        creates: "{{ app_dir }}/requirements.txt"  # Assuming this exists in zip
-
-    - name: Clone source code repository
-      ansible.builtin.git:
-        repo: "{{ repo_url }}"
-        dest: "{{ app_dir }}/src"
-        version: "main"  # or your specific branch
-        force: yes
 
     - name: Create virtual environment
-      ansible.builtin.command:
-        cmd: "python3 -m venv {{ app_dir }}/venv"
+      command: "python3 -m venv {{ app_dir }}/venv"
+      args:
         creates: "{{ app_dir }}/venv/bin/activate"
 
     - name: Install requirements
-      ansible.builtin.pip:
+      pip:
         requirements: "{{ app_dir }}/requirements.txt"
+        virtualenv: "{{ app_dir }}/venv"
+        virtualenv_command: python3 -m venv
+
+    - name: Install Gunicorn
+      pip:
+        name: gunicorn
         virtualenv: "{{ app_dir }}/venv"
 
     - name: Configure systemd service
-      ansible.builtin.template:
-        src: "templates/cart.service.j2"
-        dest: "/etc/systemd/system/{{ service_name }}.service"
+      template:
+        src: "templates/app.service.j2"
+        dest: "/etc/systemd/system/{{ artifact_name }}.service"
       notify: Restart application
 
     - name: Enable and start service
-      ansible.builtin.systemd:
-        name: "{{ service_name }}"
+      systemd:
+        name: "{{ artifact_name }}"
         state: started
         enabled: yes
         daemon_reload: yes
 
   handlers:
     - name: Restart application
-      ansible.builtin.systemd:
-        name: "{{ service_name }}"
+      systemd:
+        name: "{{ artifact_name }}"
         state: restarted
